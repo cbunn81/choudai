@@ -143,9 +143,6 @@ def fetch(url: str, csvfile: str) -> None:
 
     num_links = len(get_elements(soup=soup, element="a"))
     num_images = len(get_elements(soup=soup, element="img"))
-    print(f"Site: {url}")
-    print(f"Number of links: {num_links}")
-    print(f"Number of images: {num_images}")
     download_assets(
         session=session,
         soup=soup,
