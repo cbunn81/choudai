@@ -1,8 +1,10 @@
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import bs4
 import requests
+import typer
+import validators
 
 
 def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
@@ -43,29 +45,34 @@ def get_soup(session: requests.sessions.Session, url: str) -> bs4.BeautifulSoup:
     return soup
 
 
-def main():
-    url = "https://www.wikipedia.org/"
-    # map the elements we want to download byt tag with their reference identifiers
+def main(urls: list[str]):
+
+    # map the elements we want to download by tag with their reference identifiers
     ref_map = {"img": "src", "link": "href", "script": "src"}
 
-    session = requests.Session()
-    soup = get_soup(session=session, url=url)
+    for url in urls:
 
-    num_links = len(get_elements(soup=soup, element="a"))
-    num_images = len(get_elements(soup=soup, element="img"))
-    print(f"Site: {url}")
-    print(f"Number of links: {num_links}")
-    print(f"Number of images: {num_images}")
-    download_assets(
-        session=session,
-        soup=soup,
-        ref_map=ref_map,
-        url=url,
-        path="www.wikipedia.org_files",
-    )
-    # save to file
-    save_html(html=str(soup), path="www.wikipedia.org.html")
+        if not validators.url(url):
+            print(f"{url} is not a valid URL. Please enter valid URLs.")
+            raise typer.Abort()
+
+        session = requests.Session()
+        soup = get_soup(session=session, url=url)
+
+        site = urlparse(url=url).netloc
+
+        num_links = len(get_elements(soup=soup, element="a"))
+        num_images = len(get_elements(soup=soup, element="img"))
+        print(f"Site: {url}")
+        print(f"Number of links: {num_links}")
+        print(f"Number of images: {num_images}")
+        download_assets(
+            session=session, soup=soup, ref_map=ref_map, url=url, path=f"{site}_files"
+        )
+        # save to file
+        filename = f"{site}.html"
+        save_html(html=str(soup), path=filename)
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
