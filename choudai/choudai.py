@@ -1,3 +1,5 @@
+import csv
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -5,6 +7,40 @@ import bs4
 import requests
 import typer
 import validators
+
+
+def store_result_in_csv(
+    csvfile: str, url: str, num_images: int, num_links: int
+) -> None:
+    """Store a web page download result in a given csvfile, creating the file if needed.
+    Args:
+        csvfile (str): The CSV file to use or create.
+        url (str): The URL of the web page stored.
+        num_images (int): The number of image tags on the page.
+        num_links (int): The number of link tags on the page.
+    """
+    csvfilepath = Path(csvfile).resolve()
+    csvfilepath.parent.mkdir(parents=True, exist_ok=True)
+    # check if the CSV file already exists
+    file_exists = csvfilepath.is_file()
+    with open(csvfilepath, "a", newline="") as csvfile:
+        fieldnames = ["url", "num_images", "num_links", "last_fetch"]
+
+        # The last fetch datetime should be when this call to store the data is made
+        last_fetch = datetime.now()
+
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        # write the header if this is a new file to be created
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(
+            {
+                "url": url,
+                "num_images": num_images,
+                "num_links": num_links,
+                "last_fetch": last_fetch,
+            }
+        )
 
 
 def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
@@ -47,6 +83,9 @@ def get_soup(session: requests.sessions.Session, url: str) -> bs4.BeautifulSoup:
 
 def main(urls: list[str]):
 
+    # CSV file for metadata storage
+    csvfile = "choudai-results.csv"
+
     # map the elements we want to download by tag with their reference identifiers
     ref_map = {"img": "src", "link": "href", "script": "src"}
 
@@ -69,9 +108,15 @@ def main(urls: list[str]):
         download_assets(
             session=session, soup=soup, ref_map=ref_map, url=url, path=f"{site}_files"
         )
-        # save to file
+
+        # save HTML to file
         filename = f"{site}.html"
         save_html(html=str(soup), path=filename)
+
+        # Save metadata to file
+        store_result_in_csv(
+            csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
+        )
 
 
 if __name__ == "__main__":
