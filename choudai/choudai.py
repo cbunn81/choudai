@@ -1,12 +1,18 @@
 import csv
 from datetime import datetime
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin, urlparse
 
 import bs4
 import requests
 import typer
 import validators
+
+
+def show_results(results: dict) -> None:
+    for key, value in results.items():
+        print(f"{key}: {value}")
 
 
 def get_stored_results_from_csv(csvfile: str, url: str) -> dict:
@@ -57,6 +63,43 @@ def store_result_in_csv(
                 "last_fetch": last_fetch,
             }
         )
+
+
+def update_result_in_csv(
+    csvfile: str, url: str, num_images: int, num_links: int
+) -> None:
+    """Store a web page download result in a given csvfile, creating the file if needed.
+    Args:
+        csvfile (str): The CSV file to use or create.
+        url (str): The URL of the web page stored.
+        num_images (int): The number of image tags on the page.
+        num_links (int): The number of link tags on the page.
+    """
+    csvfilepath = Path(csvfile).resolve()
+    tempfile = NamedTemporaryFile(mode="w", delete=False)
+    tempfilepath = Path(tempfile.name).resolve()
+    with open(csvfilepath, "r", newline="") as existingfile, tempfile:
+        fieldnames = ["url", "num_images", "num_links", "last_fetch"]
+
+        # The last fetch datetime should be when this call to store the data is made
+        last_fetch = datetime.now()
+
+        reader = csv.DictReader(existingfile)
+        writer = csv.DictWriter(tempfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in reader:
+            if row["url"].strip() == url.strip():
+                row["num_images"] = num_images
+                row["num_links"] = num_links
+                row["last_fetch"] = last_fetch
+            row = {
+                "url": row["url"],
+                "num_images": row["num_images"],
+                "num_links": row["num_links"],
+                "last_fetch": row["last_fetch"],
+            }
+            writer.writerow(row)
+    tempfilepath.replace(csvfilepath)
 
 
 def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
@@ -127,10 +170,16 @@ def fetch(url: str, csvfile: str) -> None:
     filename = f"{site}.html"
     save_html(html=str(soup), path=filename)
 
-    # Save metadata to file
-    store_result_in_csv(
-        csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
-    )
+    # Check if a result already exists for the URL
+    if get_stored_results_from_csv(csvfile=csvfile, url=url):
+        update_result_in_csv(
+            csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
+        )
+    else:
+        # Save metadata to file
+        store_result_in_csv(
+            csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
+        )
 
 
 def main(urls: list[str], metadata: bool = False):
@@ -144,8 +193,11 @@ def main(urls: list[str], metadata: bool = False):
             fetch(url=url, csvfile=csvfile)
         else:
             # get stored results
-            result = get_stored_results_from_csv(csvfile=csvfile, url=url)
-            print(result)
+            results = get_stored_results_from_csv(csvfile=csvfile, url=url)
+            if not results:
+                print(f"There are no results stored for {url}")
+            else:
+                show_results(results=results)
 
 
 if __name__ == "__main__":
