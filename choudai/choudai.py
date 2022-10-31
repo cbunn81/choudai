@@ -9,6 +9,22 @@ import typer
 import validators
 
 
+def get_stored_results_from_csv(csvfile: str, url: str) -> dict:
+    """Retrieve stored metadata results from a CSV file.
+    Args:
+        csvfile (str): A CSV file containing metadata results.
+        url (str): The URL of the web page stored.
+    Returns:
+        dict: The results in a dictionary, if any.
+    """
+    csvfilepath = Path(csvfile).resolve()
+    with open(csvfilepath, newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            if row["url"] == url:
+                return row
+
+
 def store_result_in_csv(
     csvfile: str, url: str, num_images: int, num_links: int
 ) -> None:
@@ -81,42 +97,55 @@ def get_soup(session: requests.sessions.Session, url: str) -> bs4.BeautifulSoup:
     return soup
 
 
-def main(urls: list[str]):
+def fetch(url: str, csvfile: str) -> None:
+    # map the elements we want to download by tag with their reference identifiers
+    ref_map = {"img": "src", "link": "href", "script": "src"}
+
+    if not validators.url(url):
+        print(f"{url} is not a valid URL. Please enter valid URLs.")
+        raise typer.Abort()
+
+    session = requests.Session()
+    soup = get_soup(session=session, url=url)
+
+    site = urlparse(url=url).netloc
+
+    num_links = len(get_elements(soup=soup, element="a"))
+    num_images = len(get_elements(soup=soup, element="img"))
+    print(f"Site: {url}")
+    print(f"Number of links: {num_links}")
+    print(f"Number of images: {num_images}")
+    download_assets(
+        session=session,
+        soup=soup,
+        ref_map=ref_map,
+        url=url,
+        path=f"{site}_files",
+    )
+
+    # save HTML to file
+    filename = f"{site}.html"
+    save_html(html=str(soup), path=filename)
+
+    # Save metadata to file
+    store_result_in_csv(
+        csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
+    )
+
+
+def main(urls: list[str], metadata: bool = False):
 
     # CSV file for metadata storage
     csvfile = "choudai-results.csv"
 
-    # map the elements we want to download by tag with their reference identifiers
-    ref_map = {"img": "src", "link": "href", "script": "src"}
-
     for url in urls:
-
-        if not validators.url(url):
-            print(f"{url} is not a valid URL. Please enter valid URLs.")
-            raise typer.Abort()
-
-        session = requests.Session()
-        soup = get_soup(session=session, url=url)
-
-        site = urlparse(url=url).netloc
-
-        num_links = len(get_elements(soup=soup, element="a"))
-        num_images = len(get_elements(soup=soup, element="img"))
-        print(f"Site: {url}")
-        print(f"Number of links: {num_links}")
-        print(f"Number of images: {num_images}")
-        download_assets(
-            session=session, soup=soup, ref_map=ref_map, url=url, path=f"{site}_files"
-        )
-
-        # save HTML to file
-        filename = f"{site}.html"
-        save_html(html=str(soup), path=filename)
-
-        # Save metadata to file
-        store_result_in_csv(
-            csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
-        )
+        if not metadata:
+            # fetch web page and store results
+            fetch(url=url, csvfile=csvfile)
+        else:
+            # get stored results
+            result = get_stored_results_from_csv(csvfile=csvfile, url=url)
+            print(result)
 
 
 if __name__ == "__main__":
