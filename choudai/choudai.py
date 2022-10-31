@@ -1,7 +1,7 @@
 import csv
+import fileinput
 from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin, urlparse
 
 import bs4
@@ -76,30 +76,18 @@ def update_result_in_csv(
         num_links (int): The number of link tags on the page.
     """
     csvfilepath = Path(csvfile).resolve()
-    tempfile = NamedTemporaryFile(mode="w", delete=False)
-    tempfilepath = Path(tempfile.name).resolve()
-    with open(csvfilepath, "r", newline="") as existingfile, tempfile:
-        fieldnames = ["url", "num_images", "num_links", "last_fetch"]
+    # The last fetch datetime should be when this call to store the data is made
+    last_fetch = datetime.now()
 
-        # The last fetch datetime should be when this call to store the data is made
-        last_fetch = datetime.now()
-
-        reader = csv.DictReader(existingfile)
-        writer = csv.DictWriter(tempfile, fieldnames=fieldnames)
-        writer.writeheader()
+    with fileinput.input(files=csvfilepath, inplace=True, mode="r") as f:
+        reader = csv.DictReader(f)
+        print(",".join(reader.fieldnames))
         for row in reader:
-            if row["url"].strip() == url.strip():
+            if row["url"] == url:
                 row["num_images"] = num_images
                 row["num_links"] = num_links
                 row["last_fetch"] = last_fetch
-            row = {
-                "url": row["url"],
-                "num_images": row["num_images"],
-                "num_links": row["num_links"],
-                "last_fetch": row["last_fetch"],
-            }
-            writer.writerow(row)
-    tempfilepath.replace(csvfilepath)
+            print(",".join(map(str, row.values())))
 
 
 def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
