@@ -163,11 +163,11 @@ def fetch(url: str, csvfile: str) -> None:
         soup=soup,
         ref_map=ref_map,
         url=url,
-        path=f"{site}_files",
+        path=f"/data/{site}_files",
     )
 
     # save HTML to file
-    filename = f"{site}.html"
+    filename = f"/data/{site}.html"
     save_html(html=str(soup), path=filename)
 
     # Check if a result already exists for the URL
@@ -185,7 +185,7 @@ def fetch(url: str, csvfile: str) -> None:
 def main(urls: list[str], metadata: bool = False):
 
     # CSV file for metadata storage
-    csvfile = "choudai-results.csv"
+    csvfile = "/data/choudai-results.csv"
 
     for url in urls:
         if not metadata:
