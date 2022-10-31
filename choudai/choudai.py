@@ -4,8 +4,9 @@ from urllib.parse import urljoin
 import bs4
 import requests
 
-# def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
-#     return soup.find_all(element)
+
+def get_elements(soup: bs4.BeautifulSoup, element: str) -> bs4.element.ResultSet:
+    return soup.find_all(element)
 
 
 def download_assets(
@@ -22,7 +23,6 @@ def download_assets(
         for element in elements:
             if element.has_attr(ref):
                 filename = Path(element[ref]).name
-                print(filename)
                 fileurl = urljoin(url, element[ref])
                 filepath = download_path / filename
                 element[ref] = str(download_path / filename)
@@ -32,14 +32,12 @@ def download_assets(
 
 def save_html(html: str, path: str) -> None:
     save_path = Path(path)
-    print(save_path.stem)
     save_path.parent.mkdir(parents=True, exist_ok=True)
     with save_path.open("w", encoding="utf-8") as f:
         f.write(html)
 
 
 def get_soup(session: requests.sessions.Session, url: str) -> bs4.BeautifulSoup:
-    print(type(session))
     response = session.get(url)
     soup = bs4.BeautifulSoup(response.text, "html.parser")
     return soup
@@ -53,13 +51,11 @@ def main():
     session = requests.Session()
     soup = get_soup(session=session, url=url)
 
-    # print(soup)
-    print(type(soup))
-    # images = get_elements(soup=soup, element="img")
-    # print(images)
-    # print(type(images[0]))
-    # num_images = len(images)
-    # print(num_images)
+    num_links = len(get_elements(soup=soup, element="a"))
+    num_images = len(get_elements(soup=soup, element="img"))
+    print(f"Site: {url}")
+    print(f"Number of links: {num_links}")
+    print(f"Number of images: {num_images}")
     download_assets(
         session=session,
         soup=soup,
