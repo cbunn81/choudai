@@ -171,7 +171,10 @@ def fetch(url: str, csvfile: str) -> None:
     save_html(html=str(soup), path=filename)
 
     # Check if a result already exists for the URL
-    if get_stored_results_from_csv(csvfile=csvfile, url=url):
+    csvfilepath = Path(csvfile).resolve()
+    csvfilepath.parent.mkdir(parents=True, exist_ok=True)
+    # check if the CSV file already exists
+    if csvfilepath.is_file() and get_stored_results_from_csv(csvfile=csvfile, url=url):
         update_result_in_csv(
             csvfile=csvfile, url=url, num_images=num_images, num_links=num_links
         )
